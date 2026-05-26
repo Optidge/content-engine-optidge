@@ -39,7 +39,16 @@ AI-powered content calendar topic ideas for SEO agencies. Analyze client data (G
 
    Open [http://localhost:3000](http://localhost:3000).
 
-## Deploy to Vercel
+## Deploy for your agency (ownership, cost, security)
+
+See **[docs/AGENCY-DEPLOYMENT.md](docs/AGENCY-DEPLOYMENT.md)** for:
+
+- Deploying under the agency’s GitHub and Vercel (not personal)
+- Rough costs (Vercel, Anthropic, Google)
+- Security (secrets, HTTPS, optional email allowlist)
+- **Which keys to create under the agency** so billing and liability are not on you (Google OAuth, Anthropic API key, NEXTAUTH_SECRET/URL)
+
+## Deploy to Vercel (quick)
 
 1. Push to GitHub and import the repo in Vercel.
 2. In Vercel → Settings → Environment Variables, add all variables from `.env.local.example`.
