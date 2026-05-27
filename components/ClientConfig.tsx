@@ -2,21 +2,6 @@
 
 import { useState, useCallback, KeyboardEvent } from "react";
 
-const PILLAR_SUGGESTIONS = [
-  "SEO Services",
-  "Web Design",
-  "PPC Management",
-  "Content Marketing",
-  "Social Media",
-  "Email Marketing",
-  "Branding",
-  "Analytics",
-  "E-commerce",
-  "Local SEO",
-  "Link Building",
-  "CRO",
-];
-
 export type ClientConfigState = {
   clientName: string;
   clientUrl: string;
@@ -59,10 +44,6 @@ export function ClientConfig({ value, onChange }: Props) {
       addPillar(pillarInput);
     }
   };
-
-  const availableSuggestions = PILLAR_SUGGESTIONS.filter(
-    (s) => !value.pillars.includes(s)
-  ).slice(0, 6);
 
   return (
     <section className="rounded-lg border border-gray-200 bg-optidge-green-pale/50 p-6 transition-colors hover:border-accent/40">
@@ -154,20 +135,6 @@ export function ClientConfig({ value, onChange }: Props) {
                   ×
                 </button>
               </span>
-            ))}
-          </div>
-        )}
-        {availableSuggestions.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {availableSuggestions.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => addPillar(s)}
-                className="rounded border border-gray-300 bg-white px-2 py-1 font-mono text-xs text-optidge-text-muted transition-colors hover:border-accent/50 hover:bg-optidge-green-pale hover:text-accent"
-              >
-                {s}
-              </button>
             ))}
           </div>
         )}

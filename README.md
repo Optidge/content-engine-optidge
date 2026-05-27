@@ -7,8 +7,8 @@ AI-powered content calendar topic ideas for SEO agencies. Analyze client data (G
 - **Next.js 14** (App Router)
 - **Tailwind CSS**
 - **Anthropic Claude** (claude-sonnet-4-20250514)
-- **NextAuth.js** (Google OAuth for GSC)
-- **Google Search Console API**
+- **NextAuth.js** (Google OAuth for GSC + Google Sheets)
+- **Google Search Console API**, **Google Sheets API**, **Google Drive API**
 - **Papaparse** (CSV), **SheetJS** (Excel)
 - **Vercel** (deployment)
 
@@ -27,7 +27,7 @@ AI-powered content calendar topic ideas for SEO agencies. Analyze client data (G
    ```
 
    - `ANTHROPIC_API_KEY` — from Anthropic console
-   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console (OAuth 2.0, Search Console API enabled)
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console (OAuth 2.0; APIs below must be enabled)
    - `NEXTAUTH_SECRET` — e.g. `openssl rand -base64 32`
    - `NEXTAUTH_URL` — `http://localhost:3000` locally; your Vercel URL in production
 
@@ -38,6 +38,8 @@ AI-powered content calendar topic ideas for SEO agencies. Analyze client data (G
    ```
 
    Open [http://localhost:3000](http://localhost:3000).
+
+   **Google sign-in stuck after “Allow”?** See **[docs/OAUTH-LOCAL-SETUP.md](docs/OAUTH-LOCAL-SETUP.md)**.
 
 ## Deploy for your agency (ownership, cost, security)
 
@@ -54,12 +56,18 @@ See **[docs/AGENCY-DEPLOYMENT.md](docs/AGENCY-DEPLOYMENT.md)** for:
 2. In Vercel → Settings → Environment Variables, add all variables from `.env.local.example`.
 3. In Google Cloud Console, add the OAuth callback URL:  
    `https://<your-vercel-domain>/api/auth/callback/google`
-4. Enable the **Search Console API** for your Google Cloud project.
+4. In Google Cloud Console → **APIs & Services → Library**, enable:
+   - **Google Search Console API** (for GSC)
+   - **Google Sheets API** (for content calendars)
+   - **Google Drive API** (to list/search spreadsheets)
+
+   After enabling Sheets/Drive, users who connected Google before this update must **disconnect and reconnect** (or use **Reconnect Google Account** in the app) so OAuth includes the new permissions.
 
 ## Usage
 
 1. **Client configuration** — Client name (required), website URL, and service pillars (tags).
 2. **Google Search Console** — Connect with Google, pick a property, set Period A / B, then **Pull Data**.
-3. **Data upload** — Optionally upload SEMrush client/gap exports, past calendars, or other CSVs/Excel/PDF.
-4. **Additional context** — Optional notes (campaigns, topics to avoid, goals).
-5. **Generate** — Requires client name, at least one pillar, and at least one data source (GSC or file). Results show a data summary, topic cards (expand for details), filters, and CSV export.
+3. **Content calendar** — Search and select a Google Sheet, choose tabs, then **Pull Data** (or use the file upload fallback).
+4. **Data upload** — Optionally upload SEMrush client/gap exports or other supporting CSVs/Excel/PDF.
+5. **Additional context** — Optional notes (campaigns, topics to avoid, goals).
+6. **Generate** — Requires client name, at least one pillar, and at least one data source (GSC, loaded Google Sheet, or uploaded file). Results show a data summary, topic cards (expand for details), filters, and CSV export.

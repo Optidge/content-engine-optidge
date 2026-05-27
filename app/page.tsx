@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { ClientConfig, type ClientConfigState } from "@/components/ClientConfig";
 import { GSCConnect } from "@/components/GSCConnect";
+import { SheetsConnect } from "@/components/SheetsConnect";
 import {
   FileUpload,
   initialFileUploadState,
@@ -36,6 +37,7 @@ export default function ContentEnginePage() {
     pillars: [],
   });
   const [gscData, setGscData] = useState("");
+  const [pastCalendarsData, setPastCalendarsData] = useState("");
   const [fileUpload, setFileUpload] = useState<FileUploadState>(initialFileUploadState);
   const [additionalContext, setAdditionalContext] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,12 +46,12 @@ export default function ContentEnginePage() {
   const [filter, setFilter] = useState<FilterState>(initialFilterState);
 
   const hasGsc = gscData.length > 0;
+  const hasCalendarData = pastCalendarsData.length > 0;
   const hasAnyFile =
     fileUpload.semrushClient.files.length > 0 ||
     fileUpload.semrushCompetitor.files.length > 0 ||
-    fileUpload.pastCalendars.files.length > 0 ||
     fileUpload.other.files.length > 0;
-  const hasDataSource = hasGsc || hasAnyFile;
+  const hasDataSource = hasGsc || hasCalendarData || hasAnyFile;
   const hasClientName = clientConfig.clientName.trim().length > 0;
   const hasPillar = clientConfig.pillars.length > 0;
   const canGenerate = hasClientName && hasPillar && hasDataSource;
@@ -57,7 +59,9 @@ export default function ContentEnginePage() {
   const missingRequirements: string[] = [];
   if (!hasClientName) missingRequirements.push("client name");
   if (!hasPillar) missingRequirements.push("at least one service pillar");
-  if (!hasDataSource) missingRequirements.push("GSC data or at least one uploaded file");
+  if (!hasDataSource) {
+    missingRequirements.push("GSC data, a content calendar (Google Sheet), or at least one uploaded file");
+  }
 
   const handleGenerate = useCallback(async () => {
     if (!canGenerate) return;
@@ -75,7 +79,7 @@ export default function ContentEnginePage() {
           gscData: gscData || undefined,
           semrushClientData: fileUpload.semrushClient.text || undefined,
           semrushCompetitorData: fileUpload.semrushCompetitor.text || undefined,
-          pastCalendars: fileUpload.pastCalendars.text || undefined,
+          pastCalendars: pastCalendarsData || undefined,
           otherData: fileUpload.other.text || undefined,
           additionalContext: additionalContext.trim() || undefined,
         }),
@@ -96,6 +100,7 @@ export default function ContentEnginePage() {
     canGenerate,
     clientConfig,
     gscData,
+    pastCalendarsData,
     fileUpload,
     additionalContext,
   ]);
@@ -140,12 +145,18 @@ export default function ContentEnginePage() {
                 <GSCConnect onDataLoaded={setGscData} />
               </div>
               <div className="mt-6">
+                <SheetsConnect
+                  clientName={clientConfig.clientName}
+                  onDataLoaded={setPastCalendarsData}
+                />
+              </div>
+              <div className="mt-6">
                 <FileUpload state={fileUpload} onChange={setFileUpload} />
               </div>
               <div className="mt-6">
                 <section className="rounded-lg border border-gray-200 bg-optidge-green-pale/50 p-6 transition-colors hover:border-accent/40">
                   <p className="section-label font-mono mb-4">
-                    04 — Additional Context (Optional)
+                    05 — Additional Context (Optional)
                   </p>
                   <textarea
                     placeholder="Any additional notes — upcoming campaigns, seasonal focus, topics to avoid, specific goals for next month, target audience details..."
