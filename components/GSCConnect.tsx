@@ -39,6 +39,12 @@ export type GSCConnectProps = {
 
 export function GSCConnect({ onDataLoaded }: GSCConnectProps) {
   const { data: session, status } = useSession();
+  const sessionExpired = session?.error === "RefreshAccessTokenError";
+
+  const reconnectGoogle = async () => {
+    await signOut({ redirect: false });
+    await signIn("google", { callbackUrl: window.location.href });
+  };
   const [properties, setProperties] = useState<string[]>([]);
   const [propsLoading, setPropsLoading] = useState(false);
   const [state, setState] = useState<GSCState>(() => ({
@@ -123,16 +129,21 @@ export function GSCConnect({ onDataLoaded }: GSCConnectProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (status === "loading" || status === "unauthenticated") {
+  if (status === "loading" || status === "unauthenticated" || sessionExpired) {
     return (
       <section className="rounded-lg border border-gray-200 bg-optidge-green-pale/50 p-6 transition-colors hover:border-accent/40">
         <p className="section-label font-mono mb-4">02 — Google Search Console</p>
+        {sessionExpired && (
+          <p className="mb-2 text-sm text-amber-700">
+            Your Google session expired. Reconnect to continue.
+          </p>
+        )}
         <button
           type="button"
-          onClick={() => signIn("google")}
+          onClick={() => reconnectGoogle()}
           className="rounded bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
         >
-          Connect Google Search Console
+          {sessionExpired ? "Reconnect Google Account" : "Connect Google Search Console"}
         </button>
       </section>
     );

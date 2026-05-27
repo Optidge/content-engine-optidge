@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { parseFiles } from "@/lib/parseFiles";
 
-export type UploadSlot = "semrushClient" | "semrushCompetitor" | "pastCalendars" | "other";
+export type UploadSlot = "semrushClient" | "semrushCompetitor" | "other";
 
 type SlotConfig = {
   id: UploadSlot;
@@ -29,13 +29,6 @@ const SLOTS: SlotConfig[] = [
     accept: ".csv,.xlsx,.xls",
   },
   {
-    id: "pastCalendars",
-    icon: "📅",
-    label: "Past Content Calendars",
-    description: "Previous calendars showing completed work",
-    accept: ".csv,.xlsx,.xls,.pdf",
-  },
-  {
     id: "other",
     icon: "📎",
     label: "Other Supporting Data",
@@ -47,7 +40,6 @@ const SLOTS: SlotConfig[] = [
 export type FileUploadState = {
   semrushClient: { files: File[]; text: string; errors: { fileName: string; error: string }[] };
   semrushCompetitor: { files: File[]; text: string; errors: { fileName: string; error: string }[] };
-  pastCalendars: { files: File[]; text: string; errors: { fileName: string; error: string }[] };
   other: { files: File[]; text: string; errors: { fileName: string; error: string }[] };
 };
 
@@ -60,7 +52,6 @@ const emptySlot = (): FileUploadState["semrushClient"] => ({
 export const initialFileUploadState: FileUploadState = {
   semrushClient: emptySlot(),
   semrushCompetitor: emptySlot(),
-  pastCalendars: emptySlot(),
   other: emptySlot(),
 };
 
@@ -167,7 +158,7 @@ export function FileUpload({ state, onChange }: Props) {
 
   return (
     <section className="rounded-lg border border-gray-200 bg-optidge-green-pale/50 p-6 transition-colors hover:border-accent/40">
-      <p className="section-label font-mono mb-4">03 — Data Upload</p>
+      <p className="section-label font-mono mb-4">04 — Data Upload</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {SLOTS.map((config) => (
           <Dropzone
