@@ -30,6 +30,9 @@ export async function GET(req: NextRequest) {
     fields: "files(id,name,modifiedTime,owners)",
     orderBy: "modifiedTime desc",
     pageSize: "20",
+    includeItemsFromAllDrives: "true",
+    supportsAllDrives: "true",
+    corpora: "allDrives",
   });
 
   try {
