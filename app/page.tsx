@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ClientConfig, type ClientConfigState } from "@/components/ClientConfig";
 import { GSCConnect } from "@/components/GSCConnect";
 import { SheetsConnect } from "@/components/SheetsConnect";
@@ -12,24 +12,33 @@ import {
 import { GenerateButton } from "@/components/GenerateButton";
 import { ResultsSummary } from "@/components/ResultsSummary";
 import { TopicCard } from "@/components/TopicCard";
+import { ClientSelector } from "@/components/ClientSelector";
+import { FeedbackSummary } from "@/components/FeedbackSummary";
+import { SaveTopicReview } from "@/components/SaveTopicReview";
 import {
   TopicFilters,
   filterAndSortTopics,
   type FilterState,
 } from "@/components/TopicFilters";
 import { ExportButton } from "@/components/ExportButton";
-import { Providers } from "@/components/Providers";
-import type { GenerateResponse, Topic } from "@/types/api";
+import type { GenerateResponse } from "@/types/api";
+import type { ClientRecord } from "@/types/db";
+import type { FeedbackValue } from "@/components/FeedbackButtons";
 
 const initialFilterState: FilterState = {
   pillar: "",
   priority: "",
   contentType: "",
+  funnelStage: "",
+  difficulty: "",
   sortBy: "priority",
 };
 
 export default function ContentEnginePage() {
   const [view, setView] = useState<"config" | "results">("config");
+  const [mode, setMode] = useState<"profile" | "quick">("quick");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ClientRecord | null>(null);
   const [clientConfig, setClientConfig] = useState<ClientConfigState>({
     clientName: "",
     clientUrl: "",
@@ -43,7 +52,34 @@ export default function ContentEnginePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateResponse | null>(null);
+  const [generationId, setGenerationId] = useState<string | null>(null);
+  const [feedbackByTitle, setFeedbackByTitle] = useState<Record<string, FeedbackValue>>({});
   const [filter, setFilter] = useState<FilterState>(initialFilterState);
+  const preselectedSheetTabs = selectedClient?.google_sheet_tabs ?? undefined;
+
+  useEffect(() => {
+    if (!selectedClientId) {
+      setSelectedClient(null);
+      return;
+    }
+    fetch(`/api/clients/${selectedClientId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const client = data.client as ClientRecord | undefined;
+        if (!client) return;
+        setSelectedClient(client);
+        setClientConfig({
+          clientName: client.name ?? "",
+          clientUrl: client.url ?? "",
+          clientType: "non-ecommerce",
+          pillars: client.pillars ?? [],
+        });
+        if (client.additional_notes) {
+          setAdditionalContext(client.additional_notes);
+        }
+      })
+      .catch(() => setSelectedClient(null));
+  }, [selectedClientId]);
 
   const hasGsc = gscData.length > 0;
   const hasCalendarData = pastCalendarsData.length > 0;
@@ -72,10 +108,12 @@ export default function ContentEnginePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          clientId: selectedClientId ?? undefined,
           clientName: clientConfig.clientName.trim(),
           clientUrl: clientConfig.clientUrl.trim(),
           clientType: clientConfig.clientType,
           pillars: clientConfig.pillars,
+          brandVoice: selectedClient?.brand_voice ?? undefined,
           gscData: gscData || undefined,
           semrushClientData: fileUpload.semrushClient.text || undefined,
           semrushCompetitorData: fileUpload.semrushCompetitor.text || undefined,
@@ -89,8 +127,37 @@ export default function ContentEnginePage() {
         setError(data.error || "Request failed");
         return;
       }
-      setResult(data as GenerateResponse);
+      const generationResult = data as GenerateResponse;
+      setResult(generationResult);
       setView("results");
+      setFeedbackByTitle({});
+
+      if (selectedClientId) {
+        const sources: string[] = [];
+        if (gscData) sources.push("GSC");
+        if (fileUpload.semrushClient.text) sources.push("SEMrush Client");
+        if (fileUpload.semrushCompetitor.text) sources.push("SEMrush Competitor");
+        if (pastCalendarsData) sources.push("Google Sheets Calendar");
+        if (fileUpload.other.text) sources.push("Other");
+
+        const saveRes = await fetch("/api/generations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: selectedClientId,
+            topicCount: generationResult.topics.length,
+            dataSourcesUsed: sources,
+            aiSummary: generationResult.dataSummary,
+            topics: generationResult.topics,
+          }),
+        });
+        const saveData = await saveRes.json();
+        if (saveRes.ok) {
+          setGenerationId(saveData.generation?.id ?? null);
+        }
+      } else {
+        setGenerationId(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -99,6 +166,8 @@ export default function ContentEnginePage() {
   }, [
     canGenerate,
     clientConfig,
+    selectedClientId,
+    selectedClient,
     gscData,
     pastCalendarsData,
     fileUpload,
@@ -107,6 +176,9 @@ export default function ContentEnginePage() {
 
   const topics = result?.topics ?? [];
   const filteredTopics = filterAndSortTopics(topics, filter);
+  const likedCount = Object.values(feedbackByTitle).filter((v) => v === "liked").length;
+  const dislikedCount = Object.values(feedbackByTitle).filter((v) => v === "disliked").length;
+  const pendingCount = Math.max(0, topics.length - likedCount - dislikedCount);
 
   const highCount = topics.filter((t) => t.priority === "High").length;
   const mediumCount = topics.filter((t) => t.priority === "Medium").length;
@@ -118,36 +190,43 @@ export default function ContentEnginePage() {
   }, {});
 
   return (
-    <Providers>
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-gray-200 bg-optidge-green-pale/50 px-6 py-4">
-          <div className="mx-auto flex max-w-4xl items-center justify-between">
-            <h1 className="font-mono text-lg font-medium tracking-tight text-optidge-text">
-              ContentEngine
-            </h1>
-            {view === "results" && (
-              <button
-                type="button"
-                onClick={() => setView("config")}
-                className="text-sm text-optidge-text-muted hover:text-accent"
-              >
-                ← New Analysis
-              </button>
-            )}
-          </div>
-        </header>
-
-        <main className="mx-auto max-w-4xl px-6 py-8">
+      <main className="mx-auto max-w-4xl px-6 py-8">
           {view === "config" && (
             <>
-              <ClientConfig value={clientConfig} onChange={setClientConfig} />
+              <ClientSelector
+                selectedClientId={selectedClientId}
+                onSelectClient={(clientId, nextMode) => {
+                  setMode(nextMode);
+                  setSelectedClientId(clientId);
+                  if (nextMode === "quick") {
+                    setSelectedClient(null);
+                    setClientConfig({ clientName: "", clientUrl: "", clientType: "non-ecommerce", pillars: [] });
+                    setAdditionalContext("");
+                  }
+                }}
+              />
               <div className="mt-6">
-                <GSCConnect onDataLoaded={setGscData} />
+                <ClientConfig
+                  value={clientConfig}
+                  onChange={setClientConfig}
+                  readOnly={mode === "profile"}
+                />
+              </div>
+              <div className="mt-6">
+                <GSCConnect
+                  key={`gsc-${selectedClientId ?? mode}`}
+                  onDataLoaded={setGscData}
+                  initialProperty={selectedClient?.gsc_property ?? ""}
+                />
               </div>
               <div className="mt-6">
                 <SheetsConnect
+                  key={`sheets-${selectedClientId ?? mode}`}
                   clientName={clientConfig.clientName}
                   onDataLoaded={setPastCalendarsData}
+                  initialSheetId={selectedClient?.google_sheet_id ?? ""}
+                  initialSheetName={selectedClient?.google_sheet_name ?? ""}
+                  initialTabNames={preselectedSheetTabs}
                 />
               </div>
               <div className="mt-6">
@@ -158,6 +237,12 @@ export default function ContentEnginePage() {
                   <p className="section-label font-mono mb-4">
                     05 — Additional Context (Optional)
                   </p>
+                  {selectedClient?.brand_voice && (
+                    <div className="mb-3 rounded border border-gray-200 bg-white p-3">
+                      <p className="font-mono text-xs text-optidge-text-muted">Brand Voice (from profile)</p>
+                      <p className="mt-1 text-sm text-optidge-text">{selectedClient.brand_voice}</p>
+                    </div>
+                  )}
                   <textarea
                     placeholder="Any additional notes — upcoming campaigns, seasonal focus, topics to avoid, specific goals for next month, target audience details..."
                     value={additionalContext}
@@ -200,6 +285,17 @@ export default function ContentEnginePage() {
           {view === "results" && result && (
             <>
               <ResultsSummary dataSummary={result.dataSummary} />
+              {selectedClientId && (
+                <>
+                  <FeedbackSummary liked={likedCount} disliked={dislikedCount} pending={pendingCount} />
+                  <SaveTopicReview
+                    clientId={selectedClientId}
+                    generationId={generationId}
+                    topics={topics}
+                    feedbackByTitle={feedbackByTitle}
+                  />
+                </>
+              )}
               <div className="mt-6 flex flex-wrap gap-4 rounded-lg border border-gray-200 bg-optidge-green-pale/30 p-4">
                 <div className="text-green-700">
                   <span className="font-mono text-xs text-optidge-text-muted">High</span>{" "}
@@ -235,7 +331,15 @@ export default function ContentEnginePage() {
               <ul className="mt-6 space-y-3">
                 {filteredTopics.map((topic, i) => (
                   <li key={topic.title + i}>
-                    <TopicCard topic={topic} index={i} />
+                    <TopicCard
+                      topic={topic}
+                      index={i}
+                      feedbackEnabled={Boolean(selectedClientId)}
+                      feedback={feedbackByTitle[topic.title] ?? null}
+                      onFeedbackChanged={(value) =>
+                        setFeedbackByTitle((prev) => ({ ...prev, [topic.title]: value }))
+                      }
+                    />
                   </li>
                 ))}
               </ul>
@@ -245,8 +349,6 @@ export default function ContentEnginePage() {
           {view === "results" && !result && (
             <p className="text-optidge-text-muted">No results to show.</p>
           )}
-        </main>
-      </div>
-    </Providers>
+      </main>
   );
 }

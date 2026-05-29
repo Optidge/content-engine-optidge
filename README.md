@@ -8,6 +8,7 @@ AI-powered content calendar topic ideas for SEO agencies. Analyze client data (G
 - **Tailwind CSS**
 - **Anthropic Claude** (claude-sonnet-4-20250514)
 - **NextAuth.js** (Google OAuth for GSC + Google Sheets)
+- **Supabase** (client profiles, generation history, topic feedback memory)
 - **Google Search Console API**, **Google Sheets API**, **Google Drive API**
 - **Papaparse** (CSV), **SheetJS** (Excel)
 - **Vercel** (deployment)
@@ -30,6 +31,9 @@ AI-powered content calendar topic ideas for SEO agencies. Analyze client data (G
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console (OAuth 2.0; APIs below must be enabled)
    - `NEXTAUTH_SECRET` — e.g. `openssl rand -base64 32`
    - `NEXTAUTH_URL` — `http://localhost:3000` locally; your Vercel URL in production
+- `NEXT_PUBLIC_SUPABASE_URL` — from Supabase Project Settings → API
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — from Supabase Project Settings → API
+- `SUPABASE_SERVICE_ROLE_KEY` — from Supabase Project Settings → API (server-side only)
 
 3. Run locally:
 
@@ -71,3 +75,68 @@ See **[docs/AGENCY-DEPLOYMENT.md](docs/AGENCY-DEPLOYMENT.md)** for:
 4. **Data upload** — Optionally upload SEMrush client/gap exports or other supporting CSVs/Excel/PDF.
 5. **Additional context** — Optional notes (campaigns, topics to avoid, goals).
 6. **Generate** — Requires client name, at least one pillar, and at least one data source (GSC, loaded Google Sheet, or uploaded file). Results show a data summary, topic cards (expand for details), filters, and CSV export.
+
+## Supabase setup (Beta memory features)
+
+1. Create a Supabase project.
+2. In Supabase SQL Editor, run:
+
+```sql
+CREATE TABLE clients (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  name TEXT NOT NULL,
+  url TEXT,
+  pillars TEXT[] DEFAULT '{}',
+  gsc_property TEXT,
+  google_sheet_id TEXT,
+  google_sheet_name TEXT,
+  google_sheet_tabs TEXT[] DEFAULT '{}',
+  brand_voice TEXT,
+  additional_notes TEXT,
+  created_by TEXT
+);
+
+CREATE TABLE generations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  generated_by TEXT,
+  topic_count INTEGER,
+  data_sources_used TEXT[],
+  ai_summary JSONB,
+  topics JSONB,
+  status TEXT DEFAULT 'completed'
+);
+
+CREATE TABLE topic_feedback (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  topic_title TEXT NOT NULL,
+  pillar TEXT,
+  content_type TEXT,
+  target_keywords TEXT[],
+  rationale TEXT,
+  feedback TEXT CHECK (feedback IN ('liked', 'disliked')) NOT NULL,
+  feedback_by TEXT,
+  generation_id UUID REFERENCES generations(id) ON DELETE SET NULL
+);
+
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access" ON clients FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE topic_feedback ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access" ON topic_feedback FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access" ON generations FOR ALL USING (true) WITH CHECK (true);
+```
+
+3. Add Supabase keys to `.env.local` and Vercel Environment Variables.
+4. Install dependencies:
+
+```bash
+npm install @supabase/supabase-js
+```

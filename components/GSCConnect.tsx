@@ -35,9 +35,10 @@ function getDefaultDates() {
 
 export type GSCConnectProps = {
   onDataLoaded: (formatted: string) => void;
+  initialProperty?: string;
 };
 
-export function GSCConnect({ onDataLoaded }: GSCConnectProps) {
+export function GSCConnect({ onDataLoaded, initialProperty = "" }: GSCConnectProps) {
   const { data: session, status } = useSession();
   const sessionExpired = session?.error === "RefreshAccessTokenError";
 
@@ -70,6 +71,14 @@ export function GSCConnect({ onDataLoaded }: GSCConnectProps) {
       })
       .finally(() => setPropsLoading(false));
   }, [status]);
+
+  useEffect(() => {
+    const nextProperty = initialProperty.trim();
+    if (!nextProperty) return;
+    setState((prev) =>
+      prev.siteUrl === nextProperty ? prev : { ...prev, siteUrl: nextProperty }
+    );
+  }, [initialProperty]);
 
   const pullData = useCallback(() => {
     if (!state.siteUrl) return;

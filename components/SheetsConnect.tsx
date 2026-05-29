@@ -45,9 +45,18 @@ function formatModified(iso: string) {
 export type SheetsConnectProps = {
   onDataLoaded: (formatted: string) => void;
   clientName?: string;
+  initialSheetId?: string;
+  initialSheetName?: string;
+  initialTabNames?: string[];
 };
 
-export function SheetsConnect({ onDataLoaded, clientName = "" }: SheetsConnectProps) {
+export function SheetsConnect({
+  onDataLoaded,
+  clientName = "",
+  initialSheetId = "",
+  initialSheetName = "",
+  initialTabNames = [],
+}: SheetsConnectProps) {
   const { data: session, status } = useSession();
   const [uiState, setUiState] = useState<"pick-sheet" | "pick-tabs" | "loaded">("pick-sheet");
   const [search, setSearch] = useState("");
@@ -67,6 +76,7 @@ export function SheetsConnect({ onDataLoaded, clientName = "" }: SheetsConnectPr
   const [fallbackText, setFallbackText] = useState("");
   const [fallbackErrors, setFallbackErrors] = useState<{ fileName: string; error: string }[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preselectedTabsRef = useRef<string[] | null>(null);
 
   const reconnectGoogle = useCallback(async () => {
     await signOut({ redirect: false });
@@ -128,7 +138,7 @@ export function SheetsConnect({ onDataLoaded, clientName = "" }: SheetsConnectPr
     }
   }, [status, clientName, uiState, selectedSheet]);
 
-  const fetchTabs = useCallback(async (sheet: SheetListItem) => {
+  const fetchTabs = useCallback(async (sheet: SheetListItem, presetTabs?: string[]) => {
     setTabsLoading(true);
     setListError(null);
     setListErrorCode(null);
@@ -142,8 +152,14 @@ export function SheetsConnect({ onDataLoaded, clientName = "" }: SheetsConnectPr
         setListErrorCode(data.code ?? null);
         return;
       }
-      setTabs(data.tabs ?? []);
-      setSelectedTabs(new Set());
+      const nextTabs = data.tabs ?? [];
+      setTabs(nextTabs);
+      if (presetTabs && presetTabs.length > 0) {
+        const allowed = new Set(nextTabs.map((t: TabItem) => t.title));
+        setSelectedTabs(new Set(presetTabs.filter((name) => allowed.has(name))));
+      } else {
+        setSelectedTabs(new Set());
+      }
     } catch (e) {
       setListError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -153,9 +169,27 @@ export function SheetsConnect({ onDataLoaded, clientName = "" }: SheetsConnectPr
 
   useEffect(() => {
     if (uiState === "pick-tabs" && selectedSheet) {
-      fetchTabs(selectedSheet);
+      fetchTabs(selectedSheet, preselectedTabsRef.current ?? undefined);
+      preselectedTabsRef.current = null;
     }
   }, [uiState, selectedSheet, fetchTabs]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    if (!initialSheetId.trim()) return;
+
+    const sheet: SheetListItem = {
+      id: initialSheetId.trim(),
+      name: initialSheetName.trim() || "Saved sheet",
+      modifiedTime: "",
+      owner: "",
+    };
+    preselectedTabsRef.current = initialTabNames;
+    setSelectedSheet(sheet);
+    setUiState("pick-tabs");
+    setLoaded(null);
+    setPreviewOpen(false);
+  }, [status, initialSheetId, initialSheetName, fetchTabs, initialTabNames]);
 
   const selectSheet = (sheet: SheetListItem) => {
     setSelectedSheet(sheet);

@@ -13,15 +13,16 @@ export type ClientConfigState = {
 type Props = {
   value: ClientConfigState;
   onChange: (value: ClientConfigState) => void;
+  readOnly?: boolean;
 };
 
-export function ClientConfig({ value, onChange }: Props) {
+export function ClientConfig({ value, onChange, readOnly = false }: Props) {
   const [pillarInput, setPillarInput] = useState("");
 
   const addPillar = useCallback(
     (pillar: string) => {
       const trimmed = pillar.trim();
-      if (!trimmed || value.pillars.includes(trimmed)) return;
+      if (readOnly || !trimmed || value.pillars.includes(trimmed)) return;
       onChange({ ...value, pillars: [...value.pillars, trimmed] });
       setPillarInput("");
     },
@@ -35,7 +36,7 @@ export function ClientConfig({ value, onChange }: Props) {
         pillars: value.pillars.filter((_, i) => i !== index),
       });
     },
-    [value, onChange]
+    [readOnly, value, onChange]
   );
 
   const onPillarKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -56,6 +57,7 @@ export function ClientConfig({ value, onChange }: Props) {
           <button
             type="button"
             onClick={() => onChange({ ...value, clientType: "non-ecommerce" })}
+            disabled={readOnly}
             className={`flex-1 rounded px-3 py-2 font-mono text-sm transition-colors ${
               value.clientType === "non-ecommerce"
                 ? "bg-white text-accent shadow-sm"
@@ -67,6 +69,7 @@ export function ClientConfig({ value, onChange }: Props) {
           <button
             type="button"
             onClick={() => onChange({ ...value, clientType: "ecommerce" })}
+            disabled={readOnly}
             className={`flex-1 rounded px-3 py-2 font-mono text-sm transition-colors ${
               value.clientType === "ecommerce"
                 ? "bg-white text-accent shadow-sm"
@@ -90,6 +93,7 @@ export function ClientConfig({ value, onChange }: Props) {
             placeholder="e.g. Acme Corp"
             value={value.clientName}
             onChange={(e) => onChange({ ...value, clientName: e.target.value })}
+            readOnly={readOnly}
             className="w-full rounded border border-gray-200 bg-white px-3 py-2 text-optidge-text placeholder-gray-400 outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent/50"
           />
         </div>
@@ -102,6 +106,7 @@ export function ClientConfig({ value, onChange }: Props) {
             placeholder="e.g. acmecorp.com"
             value={value.clientUrl}
             onChange={(e) => onChange({ ...value, clientUrl: e.target.value })}
+            readOnly={readOnly}
             className="w-full rounded border border-gray-200 bg-white px-3 py-2 text-optidge-text placeholder-gray-400 outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent/50"
           />
         </div>
@@ -116,6 +121,7 @@ export function ClientConfig({ value, onChange }: Props) {
           value={pillarInput}
           onChange={(e) => setPillarInput(e.target.value)}
           onKeyDown={onPillarKeyDown}
+          readOnly={readOnly}
           className="w-full rounded border border-gray-200 bg-white px-3 py-2 text-optidge-text placeholder-gray-400 outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent/50"
         />
         {value.pillars.length > 0 && (
@@ -129,6 +135,7 @@ export function ClientConfig({ value, onChange }: Props) {
                 <button
                   type="button"
                   onClick={() => removePillar(i)}
+                  disabled={readOnly}
                   className="text-optidge-text-muted hover:text-optidge-text"
                   aria-label={`Remove ${p}`}
                 >
