@@ -264,7 +264,7 @@ Based on all of the above data, generate strategic content topic recommendations
     const systemPrompt = await buildSystemPrompt(clientId || undefined);
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 8096,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
