@@ -107,7 +107,7 @@ OUTPUT FORMAT — respond with ONLY valid JSON, no markdown fences, no preamble:
   ]
 }
 
-Generate between 15-25 topic ideas. Order by priority (High first, then Medium, then Low). Aim for roughly 40% High, 30% Medium, 30% Low.`;
+Generate exactly 10 topic ideas. Order by priority (High first, then Medium, then Low). Aim for roughly 50% High, 20% Medium, 30% Low.`;
 
 function formatFeedback(feedback: { topic_title: string; pillar: string | null }[]): string {
   if (feedback.length === 0) return "No previous feedback recorded.";
@@ -265,7 +265,7 @@ Based on all of the above data, generate strategic content topic recommendations
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 16384,
+      max_tokens: 10000,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     });
