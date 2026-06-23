@@ -5,10 +5,11 @@ import type { ClientRecord } from "@/types/db";
 
 type Props = {
   selectedClientId: string | null;
+  refreshToken?: number;
   onSelectClient: (clientId: string | null, mode: "profile" | "quick") => void;
 };
 
-export function ClientSelector({ selectedClientId, onSelectClient }: Props) {
+export function ClientSelector({ selectedClientId, refreshToken = 0, onSelectClient }: Props) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export function ClientSelector({ selectedClientId, onSelectClient }: Props) {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Request failed"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [refreshToken]);
 
   const selectedClient = useMemo(
     () => clients.find((c) => c.id === selectedClientId) ?? null,
@@ -147,6 +148,12 @@ export function ClientSelector({ selectedClientId, onSelectClient }: Props) {
       </div>
       {selectedClient?.url && !open && (
         <p className="mt-1 text-xs text-optidge-text-muted">{selectedClient.url}</p>
+      )}
+      {!selectedClientId && !open && (
+        <p className="mt-2 text-xs text-optidge-text-muted">
+          Quick Mode requires a website URL. If the URL matches an existing client profile, that
+          profile will be used automatically.
+        </p>
       )}
     </section>
   );

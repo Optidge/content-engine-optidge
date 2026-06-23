@@ -55,6 +55,7 @@ export default function ContentEnginePage() {
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [feedbackByTitle, setFeedbackByTitle] = useState<Record<string, FeedbackValue>>({});
   const [filter, setFilter] = useState<FilterState>(initialFilterState);
+  const [clientListRefresh, setClientListRefresh] = useState(0);
   const preselectedSheetTabs = selectedClient?.google_sheet_tabs ?? undefined;
 
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function ContentEnginePage() {
           pillars: client.pillars ?? [],
         });
         if (client.additional_notes) {
-          setAdditionalContext(client.additional_notes);
+          setAdditionalContext((prev) => (prev.trim() ? prev : client.additional_notes!));
         }
       })
       .catch(() => setSelectedClient(null));
@@ -89,11 +90,13 @@ export default function ContentEnginePage() {
     fileUpload.other.files.length > 0;
   const hasDataSource = hasGsc || hasCalendarData || hasAnyFile;
   const hasClientName = clientConfig.clientName.trim().length > 0;
+  const hasClientUrl = clientConfig.clientUrl.trim().length > 0;
   const hasPillar = clientConfig.pillars.length > 0;
-  const canGenerate = hasClientName && hasPillar && hasDataSource;
+  const canGenerate = hasClientName && hasClientUrl && hasPillar && hasDataSource;
 
   const missingRequirements: string[] = [];
   if (!hasClientName) missingRequirements.push("client name");
+  if (!hasClientUrl) missingRequirements.push("client website URL");
   if (!hasPillar) missingRequirements.push("at least one service pillar");
   if (!hasDataSource) {
     missingRequirements.push("GSC data, a content calendar (Google Sheet), or at least one uploaded file");
@@ -104,16 +107,59 @@ export default function ContentEnginePage() {
     setLoading(true);
     setError(null);
     try {
+      let activeClientId = selectedClientId;
+      let activeClientName = clientConfig.clientName.trim();
+      let activeClientUrl = clientConfig.clientUrl.trim();
+      let activePillars = clientConfig.pillars;
+      let activeBrandVoice = selectedClient?.brand_voice ?? undefined;
+
+      if (!activeClientId) {
+        const resolveRes = await fetch("/api/clients/resolve-by-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: activeClientName,
+            url: activeClientUrl,
+            pillars: activePillars,
+          }),
+        });
+        const resolveData = await resolveRes.json();
+        if (!resolveRes.ok) {
+          setError(resolveData.error || "Failed to resolve client profile");
+          return;
+        }
+
+        const client = resolveData.client as ClientRecord;
+        activeClientId = client.id;
+        activeClientName = client.name;
+        activeClientUrl = client.url ?? activeClientUrl;
+        activePillars = client.pillars ?? [];
+        activeBrandVoice = client.brand_voice ?? undefined;
+
+        setSelectedClientId(client.id);
+        setSelectedClient(client);
+        setMode("profile");
+        setClientConfig({
+          clientName: client.name,
+          clientUrl: client.url ?? "",
+          clientType: clientConfig.clientType,
+          pillars: client.pillars ?? [],
+        });
+        if (resolveData.created) {
+          setClientListRefresh((n) => n + 1);
+        }
+      }
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: selectedClientId ?? undefined,
-          clientName: clientConfig.clientName.trim(),
-          clientUrl: clientConfig.clientUrl.trim(),
+          clientId: activeClientId ?? undefined,
+          clientName: activeClientName,
+          clientUrl: activeClientUrl,
           clientType: clientConfig.clientType,
-          pillars: clientConfig.pillars,
-          brandVoice: selectedClient?.brand_voice ?? undefined,
+          pillars: activePillars,
+          brandVoice: activeBrandVoice,
           gscData: gscData || undefined,
           semrushClientData: fileUpload.semrushClient.text || undefined,
           semrushCompetitorData: fileUpload.semrushCompetitor.text || undefined,
@@ -132,7 +178,7 @@ export default function ContentEnginePage() {
       setView("results");
       setFeedbackByTitle({});
 
-      if (selectedClientId) {
+      if (activeClientId) {
         const sources: string[] = [];
         if (gscData) sources.push("GSC");
         if (fileUpload.semrushClient.text) sources.push("SEMrush Client");
@@ -144,7 +190,7 @@ export default function ContentEnginePage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            clientId: selectedClientId,
+            clientId: activeClientId,
             topicCount: generationResult.topics.length,
             dataSourcesUsed: sources,
             aiSummary: generationResult.dataSummary,
@@ -195,6 +241,7 @@ export default function ContentEnginePage() {
             <>
               <ClientSelector
                 selectedClientId={selectedClientId}
+                refreshToken={clientListRefresh}
                 onSelectClient={(clientId, nextMode) => {
                   setMode(nextMode);
                   setSelectedClientId(clientId);

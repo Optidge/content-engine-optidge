@@ -78,14 +78,16 @@ RULES:
 
 8. OPTIMIZATION vs NEW: When you identify a topic where the client already has a page but it's underperforming (declining clicks, poor CTR, losing positions), set optimizationOpportunity: true. In the suggestedAngle, explain what should change — content depth, title tag, structure, keyword targeting, etc.
 
+DATA SUMMARY LENGTH: Each dataSummary field must be 100 words or fewer. Be concise — lead with the top 2-3 findings and key metrics only. Do not repeat information across sections.
+
 OUTPUT FORMAT — respond with ONLY valid JSON, no markdown fences, no preamble:
 {
   "dataSummary": {
-    "gscInsights": "3-4 sentences summarizing the most important GSC findings with key metrics.",
-    "semrushInsights": "3-4 sentences summarizing key SEMrush findings with key metrics.",
-    "competitorInsights": "3-4 sentences on what competitors have that the client doesn't. Name competitors if they appear in the data.",
-    "contentGaps": "3-4 sentences on pillar coverage, content freshness, and strategic gaps from past calendars.",
-    "overallAssessment": "2-3 sentences on the client's overall content position — are they growing, declining, or stagnant? What is the single biggest opportunity and the single biggest risk?"
+    "gscInsights": "Max 100 words. Top GSC findings with key metrics only.",
+    "semrushInsights": "Max 100 words. Top SEMrush findings with key metrics only.",
+    "competitorInsights": "Max 100 words. Main competitor gaps; name competitors if in data.",
+    "contentGaps": "Max 100 words. Pillar coverage and calendar gaps only.",
+    "overallAssessment": "Max 100 words. Growth trend, #1 opportunity, #1 risk."
   },
   "topics": [
     {
@@ -108,6 +110,33 @@ OUTPUT FORMAT — respond with ONLY valid JSON, no markdown fences, no preamble:
 }
 
 Generate exactly 10 topic ideas. Order by priority (High first, then Medium, then Low). Aim for roughly 50% High, 20% Medium, 30% Low.`;
+
+const DATA_SUMMARY_MAX_WORDS = 100;
+
+function truncateToWords(text: string, maxWords: number): string {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return text.trim();
+  return `${words.slice(0, maxWords).join(" ")}…`;
+}
+
+function capDataSummary(dataSummary: unknown): unknown {
+  if (!dataSummary || typeof dataSummary !== "object") return dataSummary;
+  const summary = dataSummary as Record<string, unknown>;
+  const keys = [
+    "gscInsights",
+    "semrushInsights",
+    "competitorInsights",
+    "contentGaps",
+    "overallAssessment",
+  ] as const;
+  const capped: Record<string, unknown> = { ...summary };
+  for (const key of keys) {
+    if (typeof capped[key] === "string") {
+      capped[key] = truncateToWords(capped[key] as string, DATA_SUMMARY_MAX_WORDS);
+    }
+  }
+  return capped;
+}
 
 function formatFeedback(feedback: { topic_title: string; pillar: string | null }[]): string {
   if (feedback.length === 0) return "No previous feedback recorded.";
@@ -169,6 +198,8 @@ async function buildSystemPrompt(clientId?: string): Promise<string> {
 
   return `${BASE_SYSTEM_PROMPT}\n\n${memorySections.join("\n\n")}`;
 }
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -291,7 +322,15 @@ Based on all of the above data, generate strategic content topic recommendations
       }
     }
 
-    return NextResponse.json(parsed);
+    const result =
+      parsed && typeof parsed === "object"
+        ? {
+            ...(parsed as Record<string, unknown>),
+            dataSummary: capDataSummary((parsed as Record<string, unknown>).dataSummary),
+          }
+        : parsed;
+
+    return NextResponse.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Anthropic API error";
     return NextResponse.json({ error: message }, { status: 500 });
