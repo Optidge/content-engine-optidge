@@ -301,6 +301,16 @@ Based on all of the above data, generate strategic content topic recommendations
       messages: [{ role: "user", content: userMessage }],
     });
 
+    if (response.stop_reason === "max_tokens") {
+      return NextResponse.json(
+        {
+          error:
+            "AI response was truncated (token limit). Try again or reduce uploaded data.",
+        },
+        { status: 422 }
+      );
+    }
+
     const textBlock = response.content.find((b) => b.type === "text");
     let raw = textBlock && "text" in textBlock ? textBlock.text : "";
 

@@ -24,6 +24,7 @@ import { ExportButton } from "@/components/ExportButton";
 import type { GenerateResponse } from "@/types/api";
 import type { ClientRecord } from "@/types/db";
 import type { FeedbackValue } from "@/components/FeedbackButtons";
+import { parseApiResponse } from "@/lib/parseApiResponse";
 
 const initialFilterState: FilterState = {
   pillar: "",
@@ -123,9 +124,9 @@ export default function ContentEnginePage() {
             pillars: activePillars,
           }),
         });
-        const resolveData = await resolveRes.json();
-        if (!resolveRes.ok) {
-          setError(resolveData.error || "Failed to resolve client profile");
+        const { ok: resolveOk, data: resolveData } = await parseApiResponse(resolveRes);
+        if (!resolveOk) {
+          setError(String(resolveData.error || "Failed to resolve client profile"));
           return;
         }
 
@@ -168,9 +169,9 @@ export default function ContentEnginePage() {
           additionalContext: additionalContext.trim() || undefined,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Request failed");
+      const { ok, data } = await parseApiResponse(res);
+      if (!ok) {
+        setError(String(data.error || "Request failed"));
         return;
       }
       const generationResult = data as GenerateResponse;
@@ -197,9 +198,10 @@ export default function ContentEnginePage() {
             topics: generationResult.topics,
           }),
         });
-        const saveData = await saveRes.json();
-        if (saveRes.ok) {
-          setGenerationId(saveData.generation?.id ?? null);
+        const { ok: saveOk, data: saveData } = await parseApiResponse(saveRes);
+        if (saveOk) {
+          const generation = saveData.generation as { id?: string } | undefined;
+          setGenerationId(generation?.id ?? null);
         }
       } else {
         setGenerationId(null);
